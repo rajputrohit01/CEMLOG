@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#0B3D2E" />
+<title>Cemlog</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --ink:#0B1F17; --deep:#0B3D2E; --moss:#1B5E43; --lime:#8BC34A;
+    --sand:#EFE9DC; --paper:#F7F4EC; --line:#D9D2C2; --slate:#5B6B63;
+    --alert:#B23A2E; --amber:#C7862B; --ok:#1B7A4B;
+    --r:14px; --tap:56px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+    background:var(--paper); color:var(--ink);
+    font-size:17px; line-height:1.4;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  /* structural: plant weight, not decoration */
+  .topbar{
+    position:sticky; top:0; z-index:20;
+    background:var(--deep); color:var(--sand);
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 18px; padding-top:calc(14px + env(safe-area-inset-top));
+  }
+  .brand{font-weight:800; letter-spacing:.18em; font-size:15px; text-transform:uppercase}
+  .brand b{color:var(--lime)}
+  .who{font-size:12px; opacity:.8; text-align:right; line-height:1.2}
+  .wrap{max-width:520px; margin:0 auto; padding:18px 16px 120px}
+
+  h1{font-size:15px; letter-spacing:.14em; text-transform:uppercase; color:var(--slate); margin:0 0 14px; font-weight:700}
+  .card{background:#fff; border:1px solid var(--line); border-radius:var(--r); padding:16px; margin-bottom:14px}
+
+  label{display:block; font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--slate); margin:0 0 7px; font-weight:700}
+  input,select{
+    width:100%; height:var(--tap); font-size:17px; padding:0 14px;
+    border:1.5px solid var(--line); border-radius:12px; background:var(--paper); color:var(--ink);
+    appearance:none;
+  }
+  input:focus,select:focus{outline:none; border-color:var(--moss); background:#fff}
+  .field{margin-bottom:14px}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+
+  button{
+    width:100%; height:var(--tap); border:0; border-radius:12px;
+    font-size:17px; font-weight:800; letter-spacing:.03em; cursor:pointer;
+  }
+  .primary{background:var(--deep); color:#fff}
+  .primary:active{background:var(--moss)}
+  .primary:disabled{background:#A9B4AE; color:#eef}
+  .ghost{background:transparent; color:var(--deep); border:1.5px solid var(--line); height:48px; font-size:15px}
+  .lime{background:var(--lime); color:var(--ink)}
+  .danger{background:var(--alert); color:#fff}
+
+  /* the signature element: the truck strip — a load is a truck carrying challans */
+  .truckstrip{
+    display:flex; align-items:center; gap:12px;
+    background:var(--ink); color:var(--sand); border-radius:var(--r);
+    padding:14px 16px; margin-bottom:16px;
+  }
+  .truckstrip .plate{
+    font-family:"Consolas",monospace; font-weight:800; font-size:19px;
+    background:var(--lime); color:var(--ink); padding:5px 10px; border-radius:7px; letter-spacing:.05em;
+  }
+  .truckstrip .meta{font-size:12px; opacity:.85; line-height:1.3}
+  .truckstrip .adv{margin-left:auto; text-align:right}
+  .truckstrip .adv b{display:block; font-size:20px; color:var(--lime)}
+  .truckstrip .adv span{font-size:11px; opacity:.75; text-transform:uppercase; letter-spacing:.08em}
+
+  .challan{
+    display:flex; align-items:center; gap:12px;
+    border:1px solid var(--line); border-left:5px solid var(--moss);
+    border-radius:10px; padding:12px 14px; margin-bottom:10px; background:#fff;
+  }
+  .challan .lr{font-family:monospace; font-weight:700; font-size:13px; color:var(--moss)}
+  .challan .d{font-size:14px}
+  .challan .q{margin-left:auto; font-weight:800; font-size:16px}
+  .challan .q small{font-weight:600; color:var(--slate); font-size:11px}
+
+  .stat{display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed var(--line); font-size:15px}
+  .stat:last-child{border:0}
+  .stat b{font-variant-numeric:tabular-nums}
+  .muted{color:var(--slate); font-size:13px}
+
+  .toast{
+    position:fixed; left:16px; right:16px; bottom:calc(20px + env(safe-area-inset-bottom));
+    max-width:490px; margin:0 auto; z-index:50;
+    padding:14px 16px; border-radius:12px; color:#fff; font-weight:600; font-size:15px;
+    box-shadow:0 8px 30px rgba(0,0,0,.25); transform:translateY(140%); transition:transform .3s;
+  }
+  .toast.show{transform:translateY(0)}
+  .toast.ok{background:var(--ok)} .toast.err{background:var(--alert)} .toast.warn{background:var(--amber)}
+
+  .bottombar{
+    position:fixed; left:0; right:0; bottom:0; z-index:30;
+    background:#fff; border-top:1px solid var(--line);
+    padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+    max-width:520px; margin:0 auto;
+  }
+  .hide{display:none !important}
+  .center{min-height:100vh; display:flex; flex-direction:column; justify-content:center; padding:28px}
+  .logo{font-weight:800; letter-spacing:.2em; font-size:26px; text-transform:uppercase; text-align:center; margin-bottom:6px}
+  .logo b{color:var(--moss)}
+  .tag{text-align:center; color:var(--slate); font-size:13px; letter-spacing:.14em; text-transform:uppercase; margin-bottom:34px}
+  .spin{width:22px;height:22px;border:3px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;display:inline-block;animation:s .7s linear infinite;vertical-align:-5px}
+  @keyframes s{to{transform:rotate(360deg)}}
+  .empty{text-align:center; color:var(--slate); padding:26px 10px; font-size:14px}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login" class="center">
+  <div class="logo">CEM<b>LOG</b></div>
+  <div class="tag">Cement · Logistics</div>
+  <div class="field">
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="username" placeholder="you@sslogistics.org" />
+  </div>
+  <div class="field">
+    <label for="pass">Password</label>
+    <input id="pass" type="password" autocomplete="current-password" placeholder="••••••••" />
+  </div>
+  <button class="primary" id="loginBtn">Sign in</button>
+  <p class="muted" style="text-align:center;margin-top:16px" id="loginMsg"></p>
+</div>
+
+<!-- APP -->
+<div id="app" class="hide">
+  <div class="topbar">
+    <div class="brand">CEM<b>LOG</b></div>
+    <div class="who"><span id="uEmail"></span><br><span id="uRole" style="color:var(--lime)"></span></div>
+  </div>
+
+  <!-- SCREEN: NEW LOAD -->
+  <div id="screenNew" class="wrap">
+    <h1>New load</h1>
+    <div class="card">
+      <div class="field">
+        <label for="plant">Plant</label>
+        <select id="plant"></select>
+      </div>
+      <div class="field">
+        <label for="truck">Truck</label>
+        <select id="truck"></select>
+      </div>
+      <div class="field">
+        <label for="route">Route</label>
+        <select id="route"></select>
+        <p class="muted" id="routeInfo" style="margin:7px 0 0"></p>
+      </div>
+      <button class="primary" id="startLoad">Start load</button>
+    </div>
+    <p class="muted">A load is one truck, one journey. You'll add each challan next — diesel and cash are counted once for the whole load.</p>
+  </div>
+
+  <!-- SCREEN: BUILD LOAD (add challans) -->
+  <div id="screenBuild" class="wrap hide">
+    <div class="truckstrip">
+      <div>
+        <div class="plate" id="bPlate">—</div>
+      </div>
+      <div class="meta" id="bMeta">—</div>
+      <div class="adv"><b id="bChallans">0</b><span>challans</span></div>
+    </div>
+
+    <div id="challanList"></div>
+
+    <div class="card">
+      <label style="margin-bottom:12px">Add a challan</label>
+      <div class="field">
+        <label for="cCustomer">Customer</label>
+        <select id="cCustomer"></select>
+      </div>
+      <div class="field">
+        <label for="cDest">Destination</label>
+        <select id="cDest"></select>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label for="cQty">Quantity (t)</label>
+          <input id="cQty" type="number" inputmode="decimal" placeholder="0.00" />
+        </div>
+        <div class="field">
+          <label id="cChallanLabel" for="cChallan">Delivery no.</label>
+          <input id="cChallan" type="text" inputmode="text" placeholder="DEL-…" />
+        </div>
+      </div>
+      <div class="field">
+        <label for="cMaterial">Material</label>
+        <input id="cMaterial" type="text" placeholder="e.g. OPC 43" />
+      </div>
+      <button class="lime" id="addChallan">Add challan</button>
+    </div>
+  </div>
+
+  <!-- SCREEN: SUBMIT -->
+  <div id="screenReview" class="wrap hide">
+    <h1>Submit load</h1>
+    <div class="truckstrip">
+      <div><div class="plate" id="rPlate">—</div></div>
+      <div class="meta" id="rMeta">—</div>
+    </div>
+    <div class="card">
+      <div class="stat"><span>Challans</span><b id="sChallans">0</b></div>
+      <div class="stat"><span>Total quantity</span><b id="sQty">0 t</b></div>
+      <div class="stat"><span>Diesel</span><b id="sDiesel">— L</b></div>
+      <div class="stat"><span>Driver + plant + kamali (cash)</span><b id="sCash">₹—</b></div>
+    </div>
+    <div class="card">
+      <label style="margin-bottom:10px">Extra advance (only if the driver genuinely needs more)</label>
+      <div class="row2">
+        <div class="field"><label for="xDiesel">Extra diesel (L)</label><input id="xDiesel" type="number" inputmode="decimal" placeholder="0" /></div>
+        <div class="field"><label for="xCash">Extra cash (₹)</label><input id="xCash" type="number" inputmode="decimal" placeholder="0" /></div>
+      </div>
+      <div class="field hide" id="reasonWrap">
+        <label for="xReason">Reason for extra (required)</label>
+        <input id="xReason" type="text" placeholder="Why the extra advance?" />
+      </div>
+    </div>
+    <button class="primary" id="submitLoad">Submit load</button>
+    <button class="ghost" id="backToBuild" style="margin-top:10px">Back to challans</button>
+  </div>
+
+  <!-- bottom action bar -->
+  <div class="bottombar" id="buildBar">
+    <button class="primary" id="goReview" disabled>Review &amp; submit</button>
+    <button class="ghost" id="cancelLoad" style="margin-top:10px">Cancel load</button>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const SB_URL = "https://szdpbmnvauulwhiigaay.supabase.co";
+const SB_KEY = "sb_publishable_1ld0IHjdYfmvHa6n2H6jJg_miQGSbsP";
+const sb = supabase.createClient(SB_URL, SB_KEY);
+
+let BOOT = null;      // bootstrap lookups
+let LOAD = null;      // {id, plateText, meta, plant_id, challan_source}
+let CHALLANS = [];    // local list for display
+const $ = id => document.getElementById(id);
+
+function toast(msg, kind='ok', ms=3200){
+  const t=$('toast'); t.textContent=msg; t.className='toast show '+kind;
+  clearTimeout(t._t); t._t=setTimeout(()=>t.className='toast '+kind, ms);
+}
+function show(screen){
+  ['screenNew','screenBuild','screenReview'].forEach(s=>$(s).classList.add('hide'));
+  $(screen).classList.remove('hide');
+  $('buildBar').classList.toggle('hide', screen!=='screenBuild');
+}
+
+async function rpc(fn, args){
+  const {data, error} = await sb.rpc(fn, args);
+  if(error) throw error;
+  return data;
+}
+
+/* ---------- AUTH ---------- */
+$('loginBtn').onclick = async () => {
+  const email=$('email').value.trim(), password=$('pass').value;
+  if(!email||!password){ $('loginMsg').textContent='Enter email and password.'; return; }
+  $('loginBtn').innerHTML='<span class="spin"></span>';
+  const {error} = await sb.auth.signInWithPassword({email,password});
+  $('loginBtn').textContent='Sign in';
+  if(error){ $('loginMsg').textContent=error.message; return; }
+  await start();
+};
+
+async function start(){
+  const {data:{user}} = await sb.auth.getUser();
+  if(!user) return;
+  const {data:prof} = await sb.from('profiles').select('role').eq('id',user.id).single();
+  $('uEmail').textContent = user.email;
+  $('uRole').textContent = (prof?.role||'').replace('_',' ');
+  $('login').classList.add('hide'); $('app').classList.remove('hide');
+  try{ BOOT = await rpc('entry_bootstrap'); }
+  catch(e){ toast('Could not load data: '+e.message,'err'); return; }
+  fillPlants();
+  show('screenNew');
+}
+
+/* ---------- NEW LOAD ---------- */
+function fillPlants(){
+  const p=$('plant'); p.innerHTML='';
+  (BOOT.plants||[]).forEach(pl=>{
+    const o=document.createElement('option'); o.value=pl.id; o.textContent=pl.code;
+    o.dataset.challan=pl.challan_source; p.appendChild(o);
+  });
+  fillTrucksAndRoutes();
+  p.onchange=fillTrucksAndRoutes;
+}
+function currentPlant(){ const o=$('plant').selectedOptions[0]; return o?{id:o.value,code:o.textContent,challan:o.dataset.challan}:null; }
+
+function fillTrucksAndRoutes(){
+  const t=$('truck'); t.innerHTML='';
+  (BOOT.trucks||[]).forEach(tk=>{
+    const o=document.createElement('option'); o.value=tk.id;
+    o.textContent=`${tk.reg} · ${tk.wheels}W`; o.dataset.wheels=tk.wheels; t.appendChild(o);
+  });
+  const pid=currentPlant()?.id;
+  const r=$('route'); r.innerHTML='';
+  (BOOT.routes||[]).filter(rt=>rt.plant_id===pid).forEach(rt=>{
+    const o=document.createElement('option'); o.value=rt.id;
+    o.textContent=`${rt.destination} · ${rt.name} · ${rt.km}km`;
+    o.dataset.km=rt.km; o.dataset.max=rt.max_wheels||''; o.dataset.dest=rt.destination_id; r.appendChild(o);
+  });
+  routeInfo(); r.onchange=routeInfo; t.onchange=routeInfo;
+  if(!r.options.length){ $('routeInfo').textContent='No routes for this plant yet.'; }
+}
+function routeInfo(){
+  const ro=$('route').selectedOptions[0], to=$('truck').selectedOptions[0];
+  if(!ro||!to){ $('routeInfo').textContent=''; return; }
+  const max=ro.dataset.max, w=+to.dataset.wheels;
+  if(max && w>+max){ $('routeInfo').innerHTML=`<span style="color:var(--alert);font-weight:700">⚠ ${w}W exceeds route limit of ${max}W — will need an override.</span>`; }
+  else{ $('routeInfo').textContent=`${ro.dataset.km} km · route ok for ${w}W`; }
+}
+
+$('startLoad').onclick = async () => {
+  const plant=currentPlant(), truck=$('truck').selectedOptions[0], route=$('route').selectedOptions[0];
+  if(!plant||!truck||!route){ toast('Pick plant, truck and route.','warn'); return; }
+  $('startLoad').innerHTML='<span class="spin"></span>';
+  try{
+    const loadId = await rpc('create_load', {
+      p_plant_code:plant.code, p_registration:truck.textContent.split(' · ')[0], p_route_id:route.value
+    });
+    LOAD = { id:loadId, plateText:truck.textContent.split(' · ')[0],
+             meta:`${plant.code} · ${route.textContent}`, plant_id:plant.id, challan:plant.challan };
+    CHALLANS=[];
+    setupBuild();
+    show('screenBuild');
+  }catch(e){ toast(e.message,'err',5000); }
+  $('startLoad').textContent='Start load';
+};
+
+/* ---------- BUILD LOAD ---------- */
+function setupBuild(){
+  $('bPlate').textContent=LOAD.plateText; $('rPlate').textContent=LOAD.plateText;
+  $('bMeta').textContent=LOAD.meta; $('rMeta').textContent=LOAD.meta;
+  // customer list
+  const c=$('cCustomer'); c.innerHTML='';
+  (BOOT.customers||[]).forEach(cu=>{ const o=document.createElement('option'); o.value=cu.id; o.textContent=`${cu.name} · ${cu.ord_type}`; c.appendChild(o); });
+  // destinations for this plant (from routes)
+  const d=$('cDest'); d.innerHTML=''; const seen=new Set();
+  (BOOT.routes||[]).filter(r=>r.plant_id===LOAD.plant_id).forEach(r=>{
+    if(seen.has(r.destination_id))return; seen.add(r.destination_id);
+    const o=document.createElement('option'); o.value=r.destination_id; o.textContent=r.destination; d.appendChild(o);
+  });
+  // challan label follows the plant's nominated field
+  const lblMap={invoice_no:'Invoice no.',delivery_no:'Delivery no.',shipment_no:'Shipment no.',lr_no:'(LR — auto)'};
+  $('cChallanLabel').textContent=lblMap[LOAD.challan]||'Challan';
+  $('cChallan').placeholder = LOAD.challan==='lr_no'?'auto-generated':'enter '+($('cChallanLabel').textContent).toLowerCase();
+  $('cChallan').disabled = LOAD.challan==='lr_no';
+  renderChallans();
+}
+function renderChallans(){
+  const box=$('challanList'); box.innerHTML='';
+  if(!CHALLANS.length){ box.innerHTML='<div class="empty">No challans yet. Add the first one below.</div>'; }
+  CHALLANS.forEach(c=>{
+    const el=document.createElement('div'); el.className='challan';
+    el.innerHTML=`<div><div class="lr">${c.lr}</div><div class="d">${c.customer} → ${c.dest}</div></div>
+      <div class="q">${c.qty}<small> t</small></div>`;
+    box.appendChild(el);
+  });
+  $('bChallans').textContent=CHALLANS.length;
+  $('goReview').disabled = CHALLANS.length===0;
+}
+$('addChallan').onclick = async () => {
+  const cust=$('cCustomer').selectedOptions[0], dest=$('cDest').selectedOptions[0];
+  const qty=parseFloat($('cQty').value), challanVal=$('cChallan').value.trim(), mat=$('cMaterial').value.trim();
+  if(!cust||!dest||!qty||qty<=0){ toast('Customer, destination and quantity are required.','warn'); return; }
+  if(LOAD.challan!=='lr_no' && !challanVal){ toast('The challan number cannot be blank.','warn'); return; }
+  $('addChallan').innerHTML='<span class="spin"></span>';
+  const args={ p_load:LOAD.id, p_customer:cust.value, p_destination:dest.value, p_quantity:qty, p_material:mat||null,
+    p_invoice_no:null, p_delivery_no:null, p_shipment_no:null };
+  if(LOAD.challan==='invoice_no')args.p_invoice_no=challanVal;
+  if(LOAD.challan==='delivery_no')args.p_delivery_no=challanVal;
+  if(LOAD.challan==='shipment_no')args.p_shipment_no=challanVal;
+  try{
+    const lr = await rpc('add_trip', args);
+    CHALLANS.push({lr, customer:cust.textContent.split(' · ')[0], dest:dest.textContent, qty});
+    renderChallans();
+    $('cQty').value=''; $('cChallan').value=''; $('cMaterial').value='';
+    toast('Challan added · '+lr,'ok',2200);
+  }catch(e){ toast(e.message,'err',5000); }
+  $('addChallan').textContent='Add challan';
+};
+
+/* ---------- REVIEW ---------- */
+$('goReview').onclick = async () => {
+  const tot=CHALLANS.reduce((s,c)=>s+ +c.qty,0);
+  $('sChallans').textContent=CHALLANS.length;
+  $('sQty').textContent=tot.toFixed(2)+' t';
+  // fetch computed load figures
+  const {data,error}=await sb.from('loads').select('diesel_litres,cash_amount').eq('id',LOAD.id).single();
+  if(!error && data){ $('sDiesel').textContent=data.diesel_litres+' L'; $('sCash').textContent='₹'+Number(data.cash_amount).toLocaleString('en-IN'); }
+  show('screenReview');
+};
+$('backToBuild').onclick=()=>show('screenBuild');
+['xDiesel','xCash'].forEach(id=>$(id).addEventListener('input',()=>{
+  const extra=(+$('xDiesel').value||0)+(+$('xCash').value||0);
+  $('reasonWrap').classList.toggle('hide', extra<=0);
+}));
+$('submitLoad').onclick = async () => {
+  const xd=+$('xDiesel').value||0, xc=+$('xCash').value||0, reason=$('xReason').value.trim();
+  if((xd>0||xc>0) && !reason){ toast('A reason is required for extra advance.','warn'); return; }
+  $('submitLoad').innerHTML='<span class="spin"></span>';
+  try{
+    const res = await rpc('submit_load', {p_load:LOAD.id, p_extra_diesel:xd, p_extra_cash:xc, p_reason:reason||null});
+    if(String(res).startsWith('PENDING')){ toast('Submitted — waiting for approval on the extra advance.','warn',4500); }
+    else{ toast('Load active · '+CHALLANS.length+' challan(s)','ok',3500); }
+    LOAD=null; CHALLANS=[];
+    $('xDiesel').value='';$('xCash').value='';$('xReason').value='';$('reasonWrap').classList.add('hide');
+    show('screenNew');
+  }catch(e){ toast(e.message,'err',5000); }
+  $('submitLoad').textContent='Submit load';
+};
+
+/* ---------- misc ---------- */
+$('cancelLoad').onclick=()=>{
+  if(!confirm('Cancel this load? Challans already added stay recorded.'))return;
+  LOAD=null; CHALLANS=[]; show('screenNew');
+};
+sb.auth.getSession().then(({data})=>{ if(data.session) start(); });
+</script>
+</body>
+</html>
